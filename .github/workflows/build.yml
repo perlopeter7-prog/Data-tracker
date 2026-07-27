@@ -17,7 +17,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Extract zip and setup Gradle wrapper
+      - name: Extract zip and fix Gradle
         run: |
           find . -name "*.zip" -exec unzip -o {} \;
           PROJ_DIR=$(find . -maxdepth 3 -type f -name "build.gradle*" -exec dirname {} \; | head -n 1)
@@ -26,17 +26,14 @@ jobs:
             exit 1
           fi
           cd "$PROJ_DIR"
-          
-          # Setup Gradle Wrapper v8.0 to support Android Plugin 8.1.0
-          gradle wrapper --gradle-version 8.0
-          
-          # Inject repositories if settings.gradle doesn't have them
-          if [ -f "settings.gradle" ]; then
-            echo -e "\npluginManagement {\n  repositories {\n    google()\n    mavenCentral()\n    gradlePluginPortal()\n  }\n}" >> settings.gradle
-          elif [ -f "settings.gradle.kts" ]; then
-            echo -e "\npluginManagement {\n  repositories {\n    google()\n    mavenCentral()\n    gradlePluginPortal()\n  }\n}" >> settings.gradle.kts
+
+          # Fix repositories directly inside root build.gradle
+          ROOT_BUILD=$(find . -maxdepth 2 -name "build.gradle*" | head -n 1)
+          if [ -f "$ROOT_BUILD" ]; then
+            sed -i '1s/^/buildscript { repositories { google(); mavenCentral() } }\nallprojects { repositories { google(); mavenCentral() } }\n/' "$ROOT_BUILD"
           fi
 
+          gradle wrapper --gradle-version 8.0
           chmod +x gradlew
           echo "PROJECT_DIR=$PROJ_DIR" >> $GITHUB_ENV
 
