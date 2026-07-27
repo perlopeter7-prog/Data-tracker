@@ -17,21 +17,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Unzip if needed and locate project
+      - name: Extract zip and setup Gradle wrapper
         run: |
           find . -name "*.zip" -exec unzip -o {} \;
-          GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
-          if [ -z "$GRADLEW_PATH" ]; then
-            echo "gradlew not found!"
+          PROJ_DIR=$(find . -maxdepth 3 -type f -name "build.gradle*" -exec dirname {} \; | head -n 1)
+          if [ -z "$PROJ_DIR" ]; then
+            echo "No build.gradle found!"
             exit 1
           fi
-          PROJECT_DIR=$(dirname "$GRADLEW_PATH")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+          cd "$PROJ_DIR"
+          gradle wrapper
+          chmod +x gradlew
+          echo "PROJECT_DIR=$PROJ_DIR" >> $GITHUB_ENV
 
       - name: Build APK
         run: |
-          cd $PROJECT_DIR
-          chmod +x gradlew
+          cd ${{ env.PROJECT_DIR }}
           ./gradlew assembleDebug
 
       - name: Upload APK
@@ -39,4 +40,4 @@ jobs:
         with:
           name: app-debug
           path: |
-            **/build/outputs/apk/debug/app-debug.apk
+            */build/outputs/apk/debug/.apk
